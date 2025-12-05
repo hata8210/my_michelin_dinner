@@ -1,0 +1,157 @@
+这是一个基于 React 的单页应用（SPA）。由于代码使用了 TypeScript (`.tsx`) 和 JSX 语法，浏览器无法直接运行它，需要一个**构建工具**（如 Vite）将代码编译成浏览器能读懂的 JavaScript。
+
+此外，当前代码的数据存储在前端内存中（`store.tsx` 中的 `useState`），这意味着**如果您刷新浏览器或重启服务器，所有菜品、客户和余额数据都会重置**。
+
+要在 Ubuntu 服务器上部署此应用，请按照以下步骤操作：
+
+### 第一步：准备服务器环境
+
+1.  SSH 登录您的 Ubuntu 服务器。
+2.  安装 Node.js 和 npm（如果是新服务器）：
+    ```bash
+    sudo apt update
+    sudo apt install nodejs npm -y
+    ```
+    *建议使用 Node v18 或更高版本。*
+
+### 第二步：创建项目脚手架
+
+我们将使用 Vite 来创建一个标准的 React TypeScript 项目。
+
+```bash
+# 创建项目文件夹 (名为 michelin-app)
+npm create vite@latest michelin-app -- --template react-ts
+
+# 进入文件夹
+cd michelin-app
+
+# 安装依赖
+npm install
+
+# 安装图标库 (这是代码中用到的 lucide-react)
+npm install lucide-react
+```
+
+### 第三步：部署代码文件
+
+您需要将现有的代码复制到项目对应的目录中。
+
+1.  **清理默认文件**：
+    删除 `src/assets` 文件夹（如果不需要），清空 `src/App.css` 和 `src/index.css`（或者保留它们，但您的代码主要使用 Tailwind CDN）。
+
+2.  **创建/替换文件**：
+    您可以使用 `nano` 或 `vim` 编辑器，或者在本地编辑好通过 SFTP 上传。
+
+    **目录结构应如下所示：**
+    ```text
+    michelin-app/
+    ├── index.html          <-- 修改入口
+    ├── package.json
+    ├── src/
+    │   ├── main.tsx        <-- 对应您的 index.tsx (Vite默认叫 main.tsx)
+    │   ├── App.tsx
+    │   ├── types.ts
+    │   ├── store.tsx
+    │   ├── vite-env.d.ts
+    │   └── components/
+    │       ├── AdminPanel.tsx
+    │       └── ClientApp.tsx
+    ```
+
+3.  **修改 `index.html`**：
+    Vite 项目根目录下的 `index.html` 需要引用本地的 Tailwind（或者继续用 CDN）并指向入口文件。
+    *编辑 `index.html` 内容为：*
+    ```html
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Michelin Manager</title>
+        <!-- 保留 Tailwind CDN -->
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+          tailwind.config = {
+            theme: {
+              extend: {
+                colors: {
+                  primary: '#ea580c',
+                  secondary: '#1e293b',
+                }
+              }
+            }
+          }
+        </script>
+      </head>
+      <body>
+        <div id="root"></div>
+        <!-- 指向入口文件，注意路径 -->
+        <script type="module" src="/src/main.tsx"></script>
+      </body>
+    </html>
+    ```
+
+4.  **修改 `src/main.tsx` (原 index.tsx)**：
+    Vite 默认入口通常叫 `main.tsx`。确保它引入了 App。
+    ```tsx
+    import React from 'react';
+    import ReactDOM from 'react-dom/client';
+    import App from './App';
+    // 如果有全局样式可以 import './index.css'
+
+    ReactDOM.createRoot(document.getElementById('root')!).render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    );
+    ```
+
+5.  **放置其他源代码**：
+    将您提供的 `App.tsx`, `types.ts`, `store.tsx` 放入 `src/` 目录。
+    创建 `src/components/` 文件夹，并将 `AdminPanel.tsx` 和 `ClientApp.tsx` 放入其中。
+
+    *注意：由于我们现在使用 npm 安装了 `lucide-react`，代码中的 import 语句 `from 'lucide-react'` 无需修改，它会自动从 node_modules 读取，而不再依赖 CDN 的 importmap。*
+
+### 第四步：运行与访问
+
+#### 方式 A：开发模式运行（测试用）
+如果您只是想快速跑起来测试：
+
+```bash
+# --host 允许通过 IP 访问
+npm run dev -- --host
+```
+*   **访问 URL**: `http://<您的服务器IP>:5173`
+*   注意：断开 SSH 连接后服务会停止。
+
+#### 方式 B：生产环境构建与部署（推荐）
+
+1.  **构建静态文件**：
+    这会将 TypeScript 编译为浏览器可用的 HTML/CSS/JS 文件。
+    ```bash
+    npm run build
+    ```
+    构建完成后，会生成一个 `dist` 文件夹。
+
+2.  **安装轻量级 HTTP 服务器**：
+    ```bash
+    sudo npm install -g serve
+    ```
+
+3.  **后台运行服务**：
+    使用 `serve` 托管 `dist` 目录，并使用 `nohup` 或 `pm2` 让它在后台运行。
+    ```bash
+    # 使用 nohup 在后台运行，端口设为 80 (需要 sudo) 或者 3000
+    nohup npx serve -s dist -l 3000 > michelin.log 2>&1 &
+    ```
+
+*   **访问 URL**: `http://<您的服务器IP>:3000`
+
+### 常见问题排查
+
+1.  **防火墙**：如果无法访问，请检查 Ubuntu 防火墙是否放行了端口（如 3000 或 5173）。
+    ```bash
+    sudo ufw allow 3000
+    ```
+2.  **云服务商安全组**：如果是阿里云/AWS/腾讯云，需要在网页控制台的安全组规则中添加入方向规则，允许 TCP 3000 端口。
+3.  **数据持久化**：如前所述，因为没有连接后端数据库，每次**重新部署或刷新页面**，数据都会恢复到代码中定义的 `INITIAL_CUSTOMERS` 等初始状态。如果需要保存数据，需要开发后端 API (Node.js/Python) 并连接数据库 (MySQL/MongoDB)。

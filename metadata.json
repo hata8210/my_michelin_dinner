@@ -1,0 +1,5 @@
+{
+  "name": "Michelin Manager",
+  "description": "A comprehensive restaurant management and ordering application featuring an Admin dashboard for menu and customer management, and a Client interface for seamless ordering with balance-based payments.",
+  "requestFramePermissions": []
+}
